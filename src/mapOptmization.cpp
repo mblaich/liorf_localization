@@ -1018,7 +1018,7 @@ public:
         //     extractNearby();
         // }
 
-        extractNearby();
+        // extractNearby();
     }
 
     void downsampleCurrentScan()
