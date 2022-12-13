@@ -1130,10 +1130,10 @@ public:
         // yaw = pitch          ---     yaw = roll
 
         // lidar -> camera
-        float srx = sin(transformTobeMapped[1]);
-        float crx = cos(transformTobeMapped[1]);
-        float sry = sin(transformTobeMapped[2]);
-        float cry = cos(transformTobeMapped[2]);
+        float srx = sin(transformTobeMapped[2]);
+        float crx = cos(transformTobeMapped[2]);
+        float sry = sin(transformTobeMapped[1]);
+        float cry = cos(transformTobeMapped[1]);
         float srz = sin(transformTobeMapped[0]);
         float crz = cos(transformTobeMapped[0]);
 
@@ -1153,16 +1153,16 @@ public:
 
         for (int i = 0; i < laserCloudSelNum; i++) {
             // lidar -> camera
-            pointOri.x = laserCloudOri->points[i].y;
-            pointOri.y = laserCloudOri->points[i].z;
-            pointOri.z = laserCloudOri->points[i].x;
+            pointOri.x = laserCloudOri->points[i].x;
+            pointOri.y = laserCloudOri->points[i].y;
+            pointOri.z = laserCloudOri->points[i].z;
             // lidar -> camera
-            coeff.x = coeffSel->points[i].y;
-            coeff.y = coeffSel->points[i].z;
-            coeff.z = coeffSel->points[i].x;
+            coeff.x = coeffSel->points[i].x;
+            coeff.y = coeffSel->points[i].y;
+            coeff.z = coeffSel->points[i].z;
             coeff.intensity = coeffSel->points[i].intensity;
             // in camera
-            float arx = (crx*sry*srz*pointOri.x + crx*crz*sry*pointOri.y - srx*sry*pointOri.z) * coeff.x
+/*             float arx = (crx*sry*srz*pointOri.x + crx*crz*sry*pointOri.y - srx*sry*pointOri.z) * coeff.x
                       + (-srx*srz*pointOri.x - crz*srx*pointOri.y - crx*pointOri.z) * coeff.y
                       + (crx*cry*srz*pointOri.x + crx*cry*crz*pointOri.y - cry*srx*pointOri.z) * coeff.z;
 
@@ -1174,13 +1174,26 @@ public:
             float arz = ((crz*srx*sry - cry*srz)*pointOri.x + (-cry*crz-srx*sry*srz)*pointOri.y)*coeff.x
                       + (crx*crz*pointOri.x - crx*srz*pointOri.y) * coeff.y
                       + ((sry*srz + cry*crz*srx)*pointOri.x + (crz*sry-cry*srx*srz)*pointOri.y)*coeff.z;
+             */
+
+            float arx = (-srx * cry * pointOri.x - (srx * sry * srz + crx * crz) * pointOri.y + (crx * srz - srx * sry * crz) * pointOri.z) * coeff.x
+                      + (crx * cry * pointOri.x - (srx * crz - crx * sry * srz) * pointOri.y + (crx * sry * crz + srx * srz) * pointOri.z) * coeff.y;
+
+            float ary = (-crx * sry * pointOri.x + crx * cry * srz * pointOri.y + crx * cry * crz * pointOri.z) * coeff.x
+                      + (-srx * sry * pointOri.x + srx * sry * srz * pointOri.y + srx * cry * crz * pointOri.z) * coeff.y
+                      + (-cry * pointOri.x - sry * srz * pointOri.y - sry * crz * pointOri.z) * coeff.z;
+
+            float arz = ((crx * sry * crz + srx * srz) * pointOri.y + (srx * crz - crx * sry * srz) * pointOri.z) * coeff.x
+                      + ((-crx * srz + srx * sry * crz) * pointOri.y + (-srx * sry * srz - crx * crz) * pointOri.z) * coeff.y
+                      + (cry * crz * pointOri.y - cry * srz * pointOri.z) * coeff.z;
+
             // camera -> lidar
             matA.at<float>(i, 0) = arz;
-            matA.at<float>(i, 1) = arx;
-            matA.at<float>(i, 2) = ary;
-            matA.at<float>(i, 3) = coeff.z;
-            matA.at<float>(i, 4) = coeff.x;
-            matA.at<float>(i, 5) = coeff.y;
+            matA.at<float>(i, 1) = ary;
+            matA.at<float>(i, 2) = arx;
+            matA.at<float>(i, 3) = coeff.x;
+            matA.at<float>(i, 4) = coeff.y;
+            matA.at<float>(i, 5) = coeff.z;
             matB.at<float>(i, 0) = -coeff.intensity;
         }
 
