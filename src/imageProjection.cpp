@@ -1,8 +1,6 @@
 #include "utility.h"
 #include "liorf_localization/cloud_info.h"
 // <!-- liorf_localization_yjz_lucky_boy -->
-CommonLib::common_lib common_lib_;
-// <!-- liorf_localization_yjz_lucky_boy -->
 struct VelodynePointXYZIRT
 {
     PCL_ADD_POINT4D
@@ -574,7 +572,7 @@ public:
             thisPoint.z = laserCloudIn->points[i].z;
             thisPoint.intensity = laserCloudIn->points[i].intensity;
 
-            float range = pointDistance(thisPoint);
+            float range = common_lib_->pointDistance(thisPoint);
             if (range < lidarMinRange || range > lidarMaxRange)
                 continue;
 
@@ -605,6 +603,8 @@ public:
 int main(int argc, char** argv)
 {
     ros::init(argc, argv, "liorf_localization");
+
+    common_lib_ = std::make_shared<CommonLib::common_lib>("localization");
 
     ImageProjection IP;
     

@@ -1,7 +1,13 @@
 # liorf_localization
  This repo is a simple location system based on a priori map, which is based on the lio-sam framework. The current version only supports small scene maps， there are some problems with large scene maps.
 
- Video:
+------------------- Update Date: 2022-11-20 -------------------
+- First verison
+
+------------------- Update Date: 2022-12-13 -------------------
+- Re-derivation the LM optimization, don't need coordinate transformation.
+
+ Video: [基于LIO-SAM框架SLAM算法开发（三）：定位之小场景定位算法](https://www.bilibili.com/video/BV118411L7qm/?share_source=copy_web&vd_source=dee7afd16d8b7115a533915be5690f55)
 
 ## Prepare priori map
   - You can get a priori map by running [liorf](https://github.com/YJZLuckyBoy/liorf) or any open source SLAM algorithm(e.g. A-LOAM or LOAM or LIO-SAM);
@@ -15,7 +21,7 @@
     cd ~/catkin_ws/src
     git clone https://github.com/YJZLuckyBoy/liorf_localization.git
     cd ..
-    catkin_make -j2
+    catkin_make -j8
   ```
 
 2. Run the launch file
@@ -27,7 +33,7 @@
 
 4. Play bag files
   ```
-    rosbag play your_licalize.bag
+    rosbag play your_localization.bag
   ```
 
 ## Acknowledgments
