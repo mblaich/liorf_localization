@@ -230,7 +230,7 @@ public:
     void loadGlobalMap()
     {
         std::string global_map = std::getenv("HOME") + savePCDDirectory;
-        pcl::io::loadPCDFile<PointType>(global_map + "GlobalMap.pcd", *laserCloudSurfFromMap);
+        pcl::io::loadPCDFile<PointType>("/home/robolab/catkin_ws/PointClouds/GlobalMapLIORF.pcd", *laserCloudSurfFromMap);
         downSizeFilterLocalMapSurf.setInputCloud(laserCloudSurfFromMap);
         downSizeFilterLocalMapSurf.filter(*laserCloudSurfFromMapDS);
         laserCloudSurfFromMapDSNum = laserCloudSurfFromMapDS->size();
@@ -1259,8 +1259,8 @@ public:
     {
         if (cloudKeyPoses3D->points.empty())
             return;
-
-        if (laserCloudSurfLastDSNum > 30)
+        // von 30 auf 1 gechanged
+        if (laserCloudSurfLastDSNum > 1)
         {
             kdtreeSurfFromMap->setInputCloud(laserCloudSurfFromMapDS);
 
@@ -1612,7 +1612,7 @@ public:
         static tf::TransformBroadcaster br;
         tf::Transform t_odom_to_lidar = tf::Transform(tf::createQuaternionFromRPY(transformTobeMapped[0], transformTobeMapped[1], transformTobeMapped[2]),
                                                       tf::Vector3(transformTobeMapped[3], transformTobeMapped[4], transformTobeMapped[5]));
-        tf::StampedTransform trans_odom_to_lidar = tf::StampedTransform(t_odom_to_lidar, timeLaserInfoStamp, odometryFrame, "lidar_link");
+        tf::StampedTransform trans_odom_to_lidar = tf::StampedTransform(t_odom_to_lidar, timeLaserInfoStamp, odometryFrame, "base_link");
         br.sendTransform(trans_odom_to_lidar);
 
         // Publish odometry for ROS (incremental)
