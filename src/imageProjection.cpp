@@ -1,5 +1,6 @@
 #include "utility.hpp"
-#include "lio_sam/msg/cloud_info.hpp"
+
+#include "liorf_localization2/msg/cloud_info.hpp"
 
 struct VelodynePointXYZIRT
 {
@@ -30,6 +31,31 @@ POINT_CLOUD_REGISTER_POINT_STRUCT(OusterPointXYZIRT,
     (uint8_t, ring, ring) (uint16_t, noise, noise) (uint32_t, range, range)
 )
 
+struct MulranPointXYZIRT { 
+     PCL_ADD_POINT4D;
+     float intensity;
+     uint32_t t;
+     int ring;
+     EIGEN_MAKE_ALIGNED_OPERATOR_NEW
+ }EIGEN_ALIGN16;
+ POINT_CLOUD_REGISTER_POINT_STRUCT (MulranPointXYZIRT,
+     (float, x, x) (float, y, y) (float, z, z) (float, intensity, intensity)
+     (uint32_t, t, t) (int, ring, ring)
+ )
+
+struct RobosensePointXYZIRT
+{
+    PCL_ADD_POINT4D
+    float intensity;
+    uint16_t ring;
+    double timestamp;
+    EIGEN_MAKE_ALIGNED_OPERATOR_NEW
+} EIGEN_ALIGN16;
+POINT_CLOUD_REGISTER_POINT_STRUCT(RobosensePointXYZIRT, 
+      (float, x, x)(float, y, y)(float, z, z)(float, intensity, intensity)
+      (uint16_t, ring, ring)(double, timestamp, timestamp)
+)
+
 // Use the Velodyne point format as a common representation
 using PointXYZIRT = VelodynePointXYZIRT;
 
@@ -47,7 +73,7 @@ private:
     rclcpp::Publisher<sensor_msgs::msg::PointCloud2>::SharedPtr pubLaserCloud;
 
     rclcpp::Publisher<sensor_msgs::msg::PointCloud2>::SharedPtr pubExtractedCloud;
-    rclcpp::Publisher<lio_sam::msg::CloudInfo>::SharedPtr pubLaserCloudInfo;
+    rclcpp::Publisher<liorf_localization2::msg::CloudInfo>::SharedPtr pubLaserCloudInfo;
 
     rclcpp::Subscription<sensor_msgs::msg::Imu>::SharedPtr subImu;
     rclcpp::CallbackGroup::SharedPtr callbackGroupImu;
@@ -72,7 +98,6 @@ private:
     pcl::PointCloud<PointXYZIRT>::Ptr laserCloudIn;
     pcl::PointCloud<OusterPointXYZIRT>::Ptr tmpOusterCloudIn;
     pcl::PointCloud<PointType>::Ptr   fullCloud;
-    pcl::PointCloud<PointType>::Ptr   extractedCloud;
 
     int deskewFlag;
     cv::Mat rangeMat;
@@ -82,17 +107,15 @@ private:
     float odomIncreY;
     float odomIncreZ;
 
-    lio_sam::msg::CloudInfo cloudInfo;
+    liorf_localization2::msg::CloudInfo cloudInfo;
     double timeScanCur;
     double timeScanEnd;
     std_msgs::msg::Header cloudHeader;
 
-    vector<int> columnIdnCountVec;
-
 
 public:
     ImageProjection(const rclcpp::NodeOptions & options) :
-            ParamServer("lio_sam_imageProjection", options), deskewFlag(0)
+            ParamServer("liorf_localization2_imageProjection", options), deskewFlag(0)
     {
         callbackGroupLidar = create_callback_group(
             rclcpp::CallbackGroupType::MutuallyExclusive);
@@ -122,9 +145,9 @@ public:
             lidarOpt);
 
         pubExtractedCloud = create_publisher<sensor_msgs::msg::PointCloud2>(
-            "lio_sam/deskew/cloud_deskewed", 1);
-        pubLaserCloudInfo = create_publisher<lio_sam::msg::CloudInfo>(
-            "lio_sam/deskew/cloud_info", qos);
+            "liorf_localization2/deskew/cloud_deskewed", 1);
+        pubLaserCloudInfo = create_publisher<liorf_localization2::msg::CloudInfo>(
+            "liorf_localization2/deskew/cloud_info", qos);
 
         allocateMemory();
         resetParameters();
@@ -137,7 +160,6 @@ public:
         laserCloudIn.reset(new pcl::PointCloud<PointXYZIRT>());
         tmpOusterCloudIn.reset(new pcl::PointCloud<OusterPointXYZIRT>());
         fullCloud.reset(new pcl::PointCloud<PointType>());
-        extractedCloud.reset(new pcl::PointCloud<PointType>());
 
         fullCloud->points.resize(N_SCAN*Horizon_SCAN);
 
@@ -153,9 +175,7 @@ public:
     void resetParameters()
     {
         laserCloudIn->clear();
-        extractedCloud->clear();
-        // reset range matrix for range image projection
-        rangeMat = cv::Mat(N_SCAN, Horizon_SCAN, CV_32F, cv::Scalar::all(FLT_MAX));
+        fullCloud->clear();
 
         imuPointerCur = 0;
         firstPointFlag = true;
@@ -209,11 +229,8 @@ public:
             return;
 
         if (!deskewInfo())
-            return;
-
+            return;    
         projectPointCloud();
-
-        cloudExtraction();
 
         publishClouds();
 
@@ -391,7 +408,6 @@ public:
     void odomDeskewInfo()
     {
         cloudInfo.odom_available = false;
-
         while (!odomQueue.empty())
         {
             if (stamp2Sec(odomQueue.front().header.stamp) < timeScanCur - 0.01)
@@ -568,66 +584,20 @@ public:
             if (rowIdn % downsampleRate != 0)
                 continue;
 
-            int columnIdn = -1;
-            if (sensor == SensorType::VELODYNE || sensor == SensorType::OUSTER)
-            {
-                float horizonAngle = atan2(thisPoint.x, thisPoint.y) * 180 / M_PI;
-                static float ang_res_x = 360.0/float(Horizon_SCAN);
-                columnIdn = -round((horizonAngle-90.0)/ang_res_x) + Horizon_SCAN/2;
-                if (columnIdn >= Horizon_SCAN)
-                    columnIdn -= Horizon_SCAN;
-            }
-            else if (sensor == SensorType::LIVOX)
-            {
-                columnIdn = columnIdnCountVec[rowIdn];
-                columnIdnCountVec[rowIdn] += 1;
-            }
-
-
-            if (columnIdn < 0 || columnIdn >= Horizon_SCAN)
-                continue;
-
-            if (rangeMat.at<float>(rowIdn, columnIdn) != FLT_MAX)
+            if (i % pointFilterNum != 0)
                 continue;
 
             thisPoint = deskewPoint(&thisPoint, laserCloudIn->points[i].time);
 
-            rangeMat.at<float>(rowIdn, columnIdn) = range;
-
-            int index = columnIdn + rowIdn * Horizon_SCAN;
-            fullCloud->points[index] = thisPoint;
-        }
-    }
-
-    void cloudExtraction()
-    {
-        int count = 0;
-        // extract segmented cloud for lidar odometry
-        for (int i = 0; i < N_SCAN; ++i)
-        {
-            cloudInfo.start_ring_index[i] = count - 1 + 5;
-            for (int j = 0; j < Horizon_SCAN; ++j)
-            {
-                if (rangeMat.at<float>(i,j) != FLT_MAX)
-                {
-                    // mark the points' column index for marking occlusion later
-                    cloudInfo.point_col_ind[count] = j;
-                    // save range info
-                    cloudInfo.point_range[count] = rangeMat.at<float>(i,j);
-                    // save extracted cloud
-                    extractedCloud->push_back(fullCloud->points[j + i*Horizon_SCAN]);
-                    // size of extracted cloud
-                    ++count;
-                }
-            }
-            cloudInfo.end_ring_index[i] = count -1 - 5;
+            fullCloud->push_back(thisPoint);
         }
     }
     
     void publishClouds()
     {
+        RCLCPP_INFO(get_logger(), "Pub Cloud");        
         cloudInfo.header = cloudHeader;
-        cloudInfo.cloud_deskewed  = publishCloud(pubExtractedCloud, extractedCloud, cloudHeader.stamp, lidarFrame);
+        cloudInfo.cloud_deskewed  = publishCloud(pubExtractedCloud, fullCloud, cloudHeader.stamp, lidarFrame);
         pubLaserCloudInfo->publish(cloudInfo);
     }
 };

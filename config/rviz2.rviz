@@ -76,7 +76,7 @@ Visualization Manager:
         Durability Policy: Volatile
         History Policy: Keep Last
         Reliability Policy: Reliable
-        Value: /lio_sam/mapping/cloud_registered
+        Value: /liorf_localization2/mapping/cloud_registered
       Use Fixed Frame: true
       Use rainbow: true
       Value: true
@@ -135,7 +135,7 @@ Visualization Manager:
         Durability Policy: Volatile
         History Policy: Keep Last
         Reliability Policy: Reliable
-        Value: /lio_sam/mapping/path
+        Value: /liorf_localization2/mapping/path
       Value: true
     - Class: rviz_default_plugins/MarkerArray
       Enabled: true
@@ -147,7 +147,7 @@ Visualization Manager:
         Durability Policy: Volatile
         History Policy: Keep Last
         Reliability Policy: Reliable
-        Value: /lio_sam/mapping/loop_closure_constraints
+        Value: /liorf_localization2/mapping/loop_closure_constraints
       Value: true
     - Alpha: 1
       Autocompute Intensity Bounds: true
@@ -178,7 +178,7 @@ Visualization Manager:
         Durability Policy: Volatile
         History Policy: Keep Last
         Reliability Policy: System Default
-        Value: /points
+        Value: /points_raw
       Use Fixed Frame: true
       Use rainbow: true
       Value: true

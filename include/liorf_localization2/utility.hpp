@@ -10,6 +10,7 @@
 #include <std_msgs/msg/float64_multi_array.hpp>
 #include <sensor_msgs/msg/imu.hpp>
 #include <sensor_msgs/msg/point_cloud2.hpp>
+#include <geometry_msgs/msg/pose_with_covariance_stamped.hpp>
 #include <sensor_msgs/msg/nav_sat_fix.hpp>
 #include <nav_msgs/msg/odometry.hpp>
 #include <nav_msgs/msg/path.hpp>
@@ -92,10 +93,11 @@ public:
     string savePCDDirectory;
 
     // Lidar Sensor Configuration
-    SensorType sensor = SensorType::OUSTER;
+    SensorType sensor = SensorType::LIVOX;
     int N_SCAN;
     int Horizon_SCAN;
     int downsampleRate;
+    int pointFilterNum;
     float lidarMinRange;
     float lidarMaxRange;
 
@@ -114,16 +116,10 @@ public:
     Eigen::Vector3d extTrans;
     Eigen::Quaterniond extQRPY;
 
-    // LOAM
-    float edgeThreshold;
-    float surfThreshold;
-    int edgeFeatureMinValidNum;
-    int surfFeatureMinValidNum;
-
     // voxel filter paprams
-    float odometrySurfLeafSize;
-    float mappingCornerLeafSize;
-    float mappingSurfLeafSize ;
+    float mappingSurfLeafSize;
+    float surroundingKeyframeMapLeafSize;
+    float loopClosureICPSurfLeafSize ;
 
     float z_tollerance;
     float rotation_tollerance;
@@ -158,9 +154,9 @@ public:
         get_parameter("pointCloudTopic", pointCloudTopic);
         declare_parameter("imuTopic", "imu/data");
         get_parameter("imuTopic", imuTopic);
-        declare_parameter("odomTopic", "lio_sam/odometry/imu");
+        declare_parameter("odomTopic", "liorf_localization2/odometry/imu");
         get_parameter("odomTopic", odomTopic);
-        declare_parameter("gpsTopic", "lio_sam/odometry/gps");
+        declare_parameter("gpsTopic", "liorf_localization2/odometry/gps");
         get_parameter("gpsTopic", gpsTopic);
 
         declare_parameter("lidarFrame", "laser_data_frame");
@@ -187,16 +183,12 @@ public:
         get_parameter("savePCDDirectory", savePCDDirectory);
 
         std::string sensorStr;
-        declare_parameter("sensor", "ouster");
+        declare_parameter("sensor", "livox");
         get_parameter("sensor", sensorStr);
         if (sensorStr == "velodyne")
         {
             sensor = SensorType::VELODYNE;
-        }
-        else if (sensorStr == "ouster")
-        {
-            sensor = SensorType::OUSTER;
-        }
+        }        
         else if (sensorStr == "livox")
         {
             sensor = SensorType::LIVOX;
@@ -213,6 +205,8 @@ public:
         get_parameter("N_SCAN", N_SCAN);
         declare_parameter("Horizon_SCAN", 512);
         get_parameter("Horizon_SCAN", Horizon_SCAN);
+        declare_parameter("pointFilterNum", 1);
+        get_parameter("pointFilterNum", pointFilterNum);
         declare_parameter("downsampleRate", 1);
         get_parameter("downsampleRate", downsampleRate);
         declare_parameter("lidarMinRange", 5.5);
@@ -251,19 +245,6 @@ public:
         extTrans = Eigen::Map<const Eigen::Matrix<double, -1, -1, Eigen::RowMajor>>(extTransV.data(), 3, 1);
         extQRPY = Eigen::Quaterniond(extRPY);
 
-        declare_parameter("edgeThreshold", 1.0);
-        get_parameter("edgeThreshold", edgeThreshold);
-        declare_parameter("surfThreshold", 0.1);
-        get_parameter("surfThreshold", surfThreshold);
-        declare_parameter("edgeFeatureMinValidNum", 10);
-        get_parameter("edgeFeatureMinValidNum", edgeFeatureMinValidNum);
-        declare_parameter("surfFeatureMinValidNum", 100);
-        get_parameter("surfFeatureMinValidNum", surfFeatureMinValidNum);
-
-        declare_parameter("odometrySurfLeafSize", 0.4);
-        get_parameter("odometrySurfLeafSize", odometrySurfLeafSize);
-        declare_parameter("mappingCornerLeafSize", 0.2);
-        get_parameter("mappingCornerLeafSize", mappingCornerLeafSize);
         declare_parameter("mappingSurfLeafSize", 0.4);
         get_parameter("mappingSurfLeafSize", mappingSurfLeafSize);
 
@@ -286,6 +267,9 @@ public:
         declare_parameter("surroundingKeyframeSearchRadius", 50.0);
         get_parameter("surroundingKeyframeSearchRadius", surroundingKeyframeSearchRadius);
 
+        declare_parameter("surroundingKeyframeMapLeafSize", 0.5);
+        get_parameter("surroundingKeyframeMapLeafSize", surroundingKeyframeMapLeafSize);
+
         declare_parameter("loopClosureEnableFlag", true);
         get_parameter("loopClosureEnableFlag", loopClosureEnableFlag);
         declare_parameter("loopClosureFrequency", 1.0);
@@ -298,6 +282,10 @@ public:
         get_parameter("historyKeyframeSearchTimeDiff", historyKeyframeSearchTimeDiff);
         declare_parameter("historyKeyframeSearchNum", 25);
         get_parameter("historyKeyframeSearchNum", historyKeyframeSearchNum);
+
+        declare_parameter("loopClosureICPSurfLeafSize", 0.5);
+        get_parameter("loopClosureICPSurfLeafSize", loopClosureICPSurfLeafSize);
+
         declare_parameter("historyKeyframeFitnessScore", 0.3);
         get_parameter("historyKeyframeFitnessScore", historyKeyframeFitnessScore);
 
